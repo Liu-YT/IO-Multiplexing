@@ -41,7 +41,7 @@ void delete_event(int epollfd, int fd, int state);
 
 int count = 0;
 
-int main(int argc, char *argv) {
+int main(int argc, char *argv[]){
     int connfd;
     struct sockaddr_in client;
 
@@ -59,7 +59,7 @@ int main(int argc, char *argv) {
 
     client.sin_family = AF_INET;
 	client.sin_port = htons(PORT);
-    inet_pton(AF_INET, IPADDRESS, &client.sin_addr);
+    inet_pton(AF_INET, argv[1], &client.sin_addr);
 	if(connect(connfd, (struct sockaddr*)&client, sizeof(client)) < 0) {
 		perror("connect");
 		return -3;
