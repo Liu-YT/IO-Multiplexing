@@ -7,6 +7,7 @@
   - [`poll_wait`与设备的等待队列](#pollwait%E4%B8%8E%E8%AE%BE%E5%A4%87%E7%9A%84%E7%AD%89%E5%BE%85%E9%98%9F%E5%88%97)
   - [等待队列的删除](#%E7%AD%89%E5%BE%85%E9%98%9F%E5%88%97%E7%9A%84%E5%88%A0%E9%99%A4)
   - [细节补充](#%E7%BB%86%E8%8A%82%E8%A1%A5%E5%85%85)
+  - [`select`机制总结](#select%E6%9C%BA%E5%88%B6%E6%80%BB%E7%BB%93)
   - [`select` 缺点](#select-%E7%BC%BA%E7%82%B9)
   - [参考链接](#%E5%8F%82%E8%80%83%E9%93%BE%E6%8E%A5)
 
@@ -499,6 +500,12 @@ list_add(struct list_head *entry, struct list_head *head)
     };
     typedef struct __wait_queue_head wait_queue_head_t;
     ```
+
+## `select`机制总结
+
+应用程序调用`select`，进入内核调用`sys_select`，做些简单初始化工作，接着进入`core_sys_select`，此函数主要工作是**把描述符集合从用户空间复制到内核空间**，最终进入`do_select`，完成其主要的功能。
+
+`do_select`里，调用`poll_initwait`，主要工作是注册`poll_wait`的回调函数为`__pollwait`，当在设备驱动的`poll`回调函数里调用`poll_wait`，其实就是调用__pollwait，`__pollwait`的主要工作是把当前进程挂载到等待队列里，当等待的事件到来就会唤醒此进程。接着执行`for`循环，循环里首先遍历每个文件描述符，调用对应描述符的`poll`回调函数，检测是否就绪，遍历完所有描述符之后，只要有描述符处于就绪状态或信号中断或出错或者超时，就退出循环，否则会调用`poll_schedule_timeout`函数，让当前进程睡眠，一直到超时或者有描述符就绪被唤醒。接着又会再次遍历每个描述符，调用`poll`再次检测。如此循环，直到符合条件才会退出。
 
 ## `select` 缺点
 * 支持的最大文件描述符的数量为本进程支持的最大文件数量，当有几万个文件描述符时，不能够支持，即使通过内核微调调整这个值，效率也不高

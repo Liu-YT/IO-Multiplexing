@@ -6,13 +6,15 @@
   - [`poll_initwait`初始化](#pollinitwait%E5%88%9D%E5%A7%8B%E5%8C%96)
   - [核心函数`do_poll`](#%E6%A0%B8%E5%BF%83%E5%87%BD%E6%95%B0dopoll)
   - [`poll`机制总结](#poll%E6%9C%BA%E5%88%B6%E6%80%BB%E7%BB%93)
+  - [`poll`的缺点](#poll%E7%9A%84%E7%BC%BA%E7%82%B9)
   - [参考链接](#%E5%8F%82%E8%80%83%E9%93%BE%E6%8E%A5)
 
 <!-- /TOC -->
 
 # poll 源码概述
 
-`poll`作为`select`升级版，其去除了`select`的1024个文件描述符的限制，并且也取消了`select`用三个位图描述，而用整体的`pollfd`指针实现
+`poll`相对于`select`改进了`fdset size`的限制，`poll`没有再使用`fdset`数组结构，反而使用了`pollfd`，这样用户可以自定义非常大的`pollfd`数组，这个`pollfd`数组在`kernel`中的表现形式是`poll_list`链表，这样就不存在了1024的限制了，除此之外`poll`相比`select`无太大区别。
+
 
 **`poll()`函数原型**
 
@@ -62,7 +64,13 @@ SYSCALL_DEFINE3(poll, struct pollfd __user *, ufds, unsigned int, nfds,
     return ret;
 }
 ```
-
+```c
+struct pollfd {
+    int fd;
+    short events;
+    short revents;
+};
+```
 主要包含三个事情
 
 * 判断是否传入超时事件，如果传入超时时间，则调用`poll_select_set_timeout`函数对传入的超时时间进行转换，并且保存在`struct timespec`结构体实例`to`中
@@ -401,13 +409,12 @@ out:
 
 
 ## `poll`机制总结
-* 调用`poll`函数
-* 进入`sys_poll`等系统调用
-* 调用`copy_from_user`将`fds`拷贝到内核
-* `poll_initwait`对每个`fd`将此进程注册到其等待队列，当有事件发生时会唤醒此进程
-* 循环对每个`fd`调用`do_pollfd`，判断是否有事件到来，没有的话进入终端睡眠
-* 有事件到来后将所有`fds`再拷贝回用户层
+`poll`的实现与`select`基本差不多。调用`poll`函数，进入`sys_poll`等系统调用，调用`copy_from_user`将`fds`拷贝到内核，`poll_initwait`对每个`fd`将此进程注册到其等待队列，当有事件发生时会唤醒此进程，循环对每个`fd`调用`do_pollfd`，判断是否有事件到来，没有的话进入终端睡眠，有事件到来后将所有`fds`再拷贝回用户层。
 
+
+## `poll`的缺点
+* 每次调用`poll`都需要要把描述符集合从用户空间`copy`到内核空间，检测完成之后，又要把检测的结果集合从内核空间`copy`到用户空间
+* 在应用程序中，每次调用`poll`都必须首先遍历描述符，把他们加到`fd_set`集合里，这是应用层的第一次遍历，接着进入内核空间，至少进行一次遍历和调用每个描述符的`poll`回调检测，一般可能是2次遍历，第一次没发现就绪描述符，加入等待队列，第二次是被唤醒，接着再遍历一遍。再回到应用层，我们还必须再次遍历所有描述符，用`FD_ISSET`检测结果集。如果描述符很多，这种遍历就很消耗CPU资源了。
 
 ## 参考链接
 * [poll源码分析--基于3.10.0-693.11.1](https://blog.csdn.net/zancijun1666/article/details/82932811)
