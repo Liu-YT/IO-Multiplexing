@@ -48,7 +48,7 @@ static int kern_select(int n, fd_set __user *inp, fd_set __user *outp,
             return -EFAULT;
 
         to = &end_time;
-        if (poll_select_set_timeout(to,
+        if (poll_select_se`t_timeout(to,
                 tv.tv_sec + (tv.tv_usec / USEC_PER_SEC),
                 (tv.tv_usec % USEC_PER_SEC) * NSEC_PER_USEC))
             return -EINVAL;

@@ -13,7 +13,7 @@ select、poll、epoll
 * [epoll demo](./poll)
 
 ## 总结
-
+* `select`的最大文件描述符的限制是1024（其描述符最大为1024，此处非数目），可以说其是受内部实现`FD_SIZE`的限制，仅可以通过修改内核重新编译实现修改，而`poll`和`epoll`其实也是受进程的能打开的最大文件描述符数目限制，但是可以修改`ulimit -n <数目>`
 
 
 ## 相关基础博客
@@ -31,4 +31,3 @@ select、poll、epoll
 * [select、poll、epoll之间的区别](https://www.cnblogs.com/aspirant/p/9166944.html)
 * [linux内核select/poll，epoll实现与区别](https://www.jb51.net/article/97777.htm)
 * [linux 内核poll/select/epoll实现剖析](https://watter1985.iteye.com/blog/1614039)
-* 
